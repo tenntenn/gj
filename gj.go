@@ -100,12 +100,12 @@ func (a Array) Get(index int) *JsonValue {
 func (a Array) Slice(args ...int) *JsonValue {
 	switch {
 	case len(args) == 1:
-		return Value(a[args[0]:])
+		return Value([]interface{}(a[args[0]:]))
 	case len(args) >= 2:
-		return Value(a[args[0]:args[1]])
+		return Value([]interface{}(a[args[0]:args[1]]))
 	}
 
-	return Value(a)
+	return Value([]interface{}(a))
 }
 
 type Number float64

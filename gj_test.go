@@ -33,3 +33,10 @@ func TestNewJsonValueFromDecoder(t *testing.T) {
 		}
 	}
 }
+
+func TestSlice(t *testing.T) {
+	v, _ := NewJsonValue([]byte(jsonStrs[0]))
+	if _, ok := v.Object().Get("children").Array().Slice().TryArray(); !ok {
+		t.Error()
+	}
+}
