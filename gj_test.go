@@ -1,4 +1,4 @@
-package gq
+package gj
 
 import (
 	"encoding/json"
