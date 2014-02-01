@@ -92,8 +92,15 @@ func (a Array) Get(index int) *JsonValue {
 	return Value(a[index])
 }
 
-func (a Array) Slice(s, e int) *JsonValue {
-	return Value(a[s:e])
+func (a Array) Slice(args ...int) *JsonValue {
+	switch {
+	case len(args) == 1:
+		return Value(a[args[0]:])
+	case len(args) >= 2:
+		return Value(a[args[0]:args[1]])
+	}
+
+	return Value(a)
 }
 
 type Number float64
