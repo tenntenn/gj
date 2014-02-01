@@ -92,6 +92,10 @@ func (a Array) Get(index int) *JsonValue {
 	return Value(a[index])
 }
 
+func (a Array) Slice(s, e int) *JsonValue {
+	return Value(a[s:e])
+}
+
 type Number float64
 
 func (n Number) Int() int {
