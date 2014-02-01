@@ -86,6 +86,11 @@ func (o Object) Get(key string) *JsonValue {
 	return Value(o[key])
 }
 
+func (o Object) Has(key string) bool {
+	_, ok := o[key]
+	return ok
+}
+
 type Array []interface{}
 
 func (a Array) Get(index int) *JsonValue {
