@@ -34,6 +34,12 @@ func New(data []byte) (*Value, error) {
 	return &Value{v, &DefaultCodec}, err
 }
 
+func NewWithCodec(data []byte, codec Codec) (*Value, error) {
+	var v interface{}
+	err := codec.Unmarshal(data, &v)
+	return &Value{v, &codec}, err
+}
+
 func ValueOf(v interface{}) *Value {
 	return &Value{v, &DefaultCodec}
 }
