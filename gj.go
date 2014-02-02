@@ -160,6 +160,19 @@ func (v *Value) Has(k string) bool {
 	panic("v is not an object (map).")
 }
 
+func (v *Value) TryGet(k string) (*Value, bool) {
+
+	if o, ok := v.value.(map[string]interface{}); ok {
+		if fv, has := o[k]; has {
+			return &Value{fv, v.codec}, true
+		} else {
+			return nil, false
+		}
+	}
+
+	panic("v is not an object (map).")
+}
+
 func (v *Value) Len() int {
 	if a, ok := v.value.([]interface{}); ok {
 		return len(a)
