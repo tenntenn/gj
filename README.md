@@ -1,4 +1,6 @@
 gj
 ==
 
-json
+## API Document
+
+* http://godoc.org/github.com/tenntenn/gj
