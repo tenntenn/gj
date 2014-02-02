@@ -25,20 +25,21 @@ func jsonUnmarshal(data []byte, v interface{}) (err error) {
 
 type Value struct {
 	value interface{}
+	codec *Codec
 }
 
 func New(data []byte) (*Value, error) {
 	var v interface{}
 	err := DefaultCodec.Unmarshal(data, &v)
-	return &Value{v}, err
+	return &Value{v, &DefaultCodec}, err
 }
 
 func ValueOf(v interface{}) *Value {
-	return &Value{v}
+	return &Value{v, &DefaultCodec}
 }
 
 func (v *Value) Marshal() (data []byte, err error) {
-	return DefaultCodec.Marshal(v.value)
+	return v.codec.Marshal(v.value)
 }
 
 func (v *Value) Unmarshal(dst interface{}) (err error) {
@@ -46,7 +47,7 @@ func (v *Value) Unmarshal(dst interface{}) (err error) {
 	if data, err = v.Marshal(); err != nil {
 		return err
 	}
-	return DefaultCodec.Unmarshal(data, dst)
+	return v.codec.Unmarshal(data, dst)
 }
 
 func (v *Value) IsObject() bool {
@@ -112,11 +113,11 @@ func (v *Value) Bool() bool {
 func (v *Value) Index(i int) *Value {
 
 	if a, ok := v.value.([]interface{}); ok {
-		return &Value{a[i]}
+		return &Value{a[i], v.codec}
 	}
 
 	if s, ok := v.value.([]byte); ok {
-		return &Value{string(s[i])}
+		return &Value{string(s[i]), v.codec}
 	}
 
 	panic("v is not an array (slice) or string.")
@@ -125,11 +126,11 @@ func (v *Value) Index(i int) *Value {
 func (v *Value) Slice(i, j int) *Value {
 
 	if a, ok := v.value.([]interface{}); ok {
-		return &Value{a[i:j]}
+		return &Value{a[i:j], v.codec}
 	}
 
 	if s, ok := v.value.([]byte); ok {
-		return &Value{string(s[i:j])}
+		return &Value{string(s[i:j]), v.codec}
 	}
 
 	panic("v is not an array (slice) or string.")
@@ -138,7 +139,7 @@ func (v *Value) Slice(i, j int) *Value {
 func (v *Value) Get(k string) *Value {
 
 	if o, ok := v.value.(map[string]interface{}); ok {
-		return &Value{o[k]}
+		return &Value{o[k], v.codec}
 	}
 
 	panic("v is not an object (map).")
