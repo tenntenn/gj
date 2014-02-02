@@ -2,6 +2,7 @@ package gj
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 type Codec struct {
@@ -87,12 +88,11 @@ func (v *Value) IsString() bool {
 }
 
 func (v *Value) String() string {
-	s, ok := v.value.(string)
-	if !ok {
-		panic("v cannot convert to a string value.")
+	if s, ok := v.value.(string); ok {
+		return s
 	}
 
-	return s
+	return fmt.Sprintf("%v", v.value)
 }
 
 func (v *Value) IsBool() bool {
