@@ -4,116 +4,189 @@ import (
 	"encoding/json"
 )
 
-type JsonValue struct {
+type Codec struct {
+	Marshal   func(v interface{}) (data []byte, err error)
+	Unmarshal func(data []byte, v interface{}) (err error)
+}
+
+var (
+	JSON         = Codec{jsonMarshal, jsonUnmarshal}
+	DefaultCodec = JSON
+)
+
+func jsonMarshal(v interface{}) (data []byte, err error) {
+	return json.Marshal(v)
+}
+
+func jsonUnmarshal(data []byte, v interface{}) (err error) {
+	return json.Unmarshal(data, v)
+}
+
+type Value struct {
 	value interface{}
 }
 
-func NewJsonValue(jsonStr []byte) (*JsonValue, error) {
+func New(data []byte) (*Value, error) {
 	var v interface{}
-	err := json.Unmarshal(jsonStr, &v)
-	return Value(v), err
+	err := DefaultCodec.Unmarshal(data, &v)
+	return &Value{v}, err
 }
 
-func NewJsonValueFromDecoder(decoder *json.Decoder) (*JsonValue, error) {
-	var v interface{}
-	err := decoder.Decode(&v)
-	return Value(v), err
+func ValueOf(v interface{}) *Value {
+	return &Value{v}
 }
 
-func Value(v interface{}) *JsonValue {
-	return &JsonValue{v}
+func (v *Value) Marshal() (data []byte, err error) {
+	return DefaultCodec.Marshal(v.value)
 }
 
-func (v *JsonValue) Json() []byte {
-	// TODO: エラー処理
-	jsonStr, _ := json.Marshal(v.value)
-	return jsonStr
+func (v *Value) Unmarshal(dst interface{}) (err error) {
+	var data []byte
+	if data, err = v.Marshal(); err != nil {
+		return err
+	}
+	return DefaultCodec.Unmarshal(data, dst)
 }
 
-func (v *JsonValue) TryObject() (Object, bool) {
-	o, ok := v.value.(map[string]interface{})
-	return Object(o), ok
+func (v *Value) IsObject() bool {
+	_, isObject := v.value.(map[string]interface{})
+	return isObject
 }
 
-func (v *JsonValue) Object() Object {
-	o, _ := v.TryObject()
-	return o
+func (v *Value) IsArray() bool {
+	_, isArray := v.value.([]interface{})
+	return isArray
 }
 
-func (v *JsonValue) TryArray() (Array, bool) {
-	a, ok := v.value.([]interface{})
-	return Array(a), ok
+func (v *Value) IsNumber() bool {
+	_, isNumber := v.value.(float64)
+	return isNumber
 }
 
-func (v *JsonValue) Array() Array {
-	a, _ := v.TryArray()
-	return a
-}
-
-func (v *JsonValue) TryNumber() (Number, bool) {
+func (v *Value) Int() int64 {
 	n, ok := v.value.(float64)
-	return Number(n), ok
+	if !ok {
+		panic("v cannot convert to a int value.")
+	}
+
+	return int64(n)
 }
 
-func (v *JsonValue) Number() Number {
-	n, _ := v.TryNumber()
-	return n
+func (v *Value) Float() float64 {
+	f, ok := v.value.(float64)
+	if !ok {
+		panic("v cannot convert to a float value.")
+	}
+
+	return f
 }
 
-func (v *JsonValue) TryString() (string, bool) {
+func (v *Value) IsString() bool {
+	_, isString := v.value.(string)
+	return isString
+}
+
+func (v *Value) String() string {
 	s, ok := v.value.(string)
-	return s, ok
-}
+	if !ok {
+		panic("v cannot convert to a string value.")
+	}
 
-func (v *JsonValue) String() string {
-	s, _ := v.TryString()
 	return s
 }
 
-func (v *JsonValue) TryBool() (bool, bool) {
-	b, ok := v.value.(bool)
-	return b, ok
+func (v *Value) IsBool() bool {
+	_, isBool := v.value.(bool)
+	return isBool
 }
 
-func (v *JsonValue) Bool() bool {
-	b, _ := v.TryBool()
+func (v *Value) Bool() bool {
+	b, ok := v.value.(bool)
+	if !ok {
+		panic("v cannot convert to a bool value.")
+	}
+
 	return b
 }
 
-type Object map[string]interface{}
+func (v *Value) Index(i int) *Value {
 
-func (o Object) Get(key string) *JsonValue {
-	return Value(o[key])
-}
-
-func (o Object) Has(key string) bool {
-	_, ok := o[key]
-	return ok
-}
-
-type Array []interface{}
-
-func (a Array) Get(index int) *JsonValue {
-	return Value(a[index])
-}
-
-func (a Array) Slice(args ...int) *JsonValue {
-	switch {
-	case len(args) == 1:
-		return Value([]interface{}(a[args[0]:]))
-	case len(args) >= 2:
-		return Value([]interface{}(a[args[0]:args[1]]))
+	if a, ok := v.value.([]interface{}); ok {
+		return &Value{a[i]}
 	}
 
-	return Value([]interface{}(a))
+	if s, ok := v.value.([]byte); ok {
+		return &Value{string(s[i])}
+	}
+
+	panic("v is not an array (slice) or string.")
 }
 
-type Number float64
+func (v *Value) Slice(i, j int) *Value {
 
-func (n Number) Int() int {
-	return int(n)
+	if a, ok := v.value.([]interface{}); ok {
+		return &Value{a[i:j]}
+	}
+
+	if s, ok := v.value.([]byte); ok {
+		return &Value{string(s[i:j])}
+	}
+
+	panic("v is not an array (slice) or string.")
 }
 
-func (n Number) Float64() float64 {
-	return float64(n)
+func (v *Value) Get(k string) *Value {
+
+	if o, ok := v.value.(map[string]interface{}); ok {
+		return &Value{o[k]}
+	}
+
+	panic("v is not an object (map).")
+}
+
+func (v *Value) Has(k string) bool {
+	if o, ok := v.value.(map[string]interface{}); ok {
+		_, has := o[k]
+		return has
+	}
+
+	panic("v is not an object (map).")
+}
+
+func (v *Value) Len() int {
+	if a, ok := v.value.([]interface{}); ok {
+		return len(a)
+	}
+
+	if s, ok := v.value.([]byte); ok {
+		return len(s)
+	}
+
+	panic("v is not an array (slice) or string.")
+
+}
+
+func (v *Value) Keys() []string {
+
+	if o, ok := v.value.(map[string]interface{}); ok {
+		keys := make([]string, 0, len(o))
+		for k, _ := range o {
+			keys = append(keys, k)
+		}
+		return keys
+	}
+
+	panic("v is not an object (map).")
+}
+
+func (v *Value) EachIndex(f func(i int, v *Value)) {
+	for i := 0; i < v.Len(); i++ {
+		f(i, v.Index(i))
+	}
+}
+
+func (v *Value) EachKey(f func(k string, v *Value)) {
+	for _, k := range v.Keys() {
+		f(k, v.Get(k))
+	}
 }
