@@ -7,5 +7,5 @@ gj
 
 ## Samples
 
-* 'samples/timeline': Parsing Chrome's timeline sample
-* 'samples/msgpack': MessagePack sample
+* [samples/timeline](https://github.com/tenntenn/gj/tree/master/samples/timeline): Parsing Chrome's timeline sample
+* [samples/msgpack](https://github.com/tenntenn/gj/tree/master/samples/msgpack): MessagePack sample
