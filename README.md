@@ -7,4 +7,5 @@ gj
 
 ## Samples
 
-* 'samples/timeline': Parsing Chrome's timeline
+* 'samples/timeline': Parsing Chrome's timeline sample
+* 'samples/msgpack': MessagePack sample

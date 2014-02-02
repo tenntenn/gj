@@ -57,8 +57,16 @@ func (v *Value) Unmarshal(dst interface{}) (err error) {
 }
 
 func (v *Value) IsObject() bool {
-	_, isObject := v.value.(map[string]interface{})
-	return isObject
+
+	if _, ok := v.value.(map[string]interface{}); ok {
+		return true
+	}
+
+	if _, ok := v.value.(map[interface{}]interface{}); ok {
+		return true
+	}
+
+	return false
 }
 
 func (v *Value) IsArray() bool {
@@ -72,12 +80,16 @@ func (v *Value) IsNumber() bool {
 }
 
 func (v *Value) Int() int64 {
-	n, ok := v.value.(float64)
-	if !ok {
-		panic("v cannot convert to a int value.")
+
+	if f, ok := v.value.(float64); ok {
+		return int64(f)
 	}
 
-	return int64(n)
+	if n, ok := v.value.(int64); ok {
+		return n
+	}
+
+	panic("v cannot convert to a int value.")
 }
 
 func (v *Value) Float() float64 {
@@ -148,11 +160,21 @@ func (v *Value) Get(k string) *Value {
 		return &Value{o[k], v.codec}
 	}
 
+	if o, ok := v.value.(map[interface{}]interface{}); ok {
+		return &Value{o[k], v.codec}
+	}
+
 	panic("v is not an object (map).")
 }
 
 func (v *Value) Has(k string) bool {
+
 	if o, ok := v.value.(map[string]interface{}); ok {
+		_, has := o[k]
+		return has
+	}
+
+	if o, ok := v.value.(map[interface{}]interface{}); ok {
 		_, has := o[k]
 		return has
 	}
@@ -162,7 +184,7 @@ func (v *Value) Has(k string) bool {
 
 func (v *Value) TryGet(k string) (*Value, bool) {
 
-	if o, ok := v.value.(map[string]interface{}); ok {
+	if o, ok := v.value.(map[interface{}]interface{}); ok {
 		if fv, has := o[k]; has {
 			return &Value{fv, v.codec}, true
 		} else {
@@ -192,6 +214,14 @@ func (v *Value) Keys() []string {
 		keys := make([]string, 0, len(o))
 		for k, _ := range o {
 			keys = append(keys, k)
+		}
+		return keys
+	}
+
+	if o, ok := v.value.(map[interface{}]interface{}); ok {
+		keys := make([]string, 0, len(o))
+		for k, _ := range o {
+			keys = append(keys, k.(string))
 		}
 		return keys
 	}
