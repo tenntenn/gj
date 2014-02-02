@@ -31,7 +31,5 @@ func traversal(v *gj.Value) {
 		if v.Has("children") {
 			traversal(v.Get("children"))
 		}
-
-		return
 	}
 }
