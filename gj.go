@@ -24,24 +24,27 @@ func jsonUnmarshal(data []byte, v interface{}) (err error) {
 }
 
 type Value struct {
-	value interface{}
-	codec *Codec
+	value  interface{}
+	codec  *Codec
+	parent *Value
+	key    string
+	index  int
 }
 
 func New(data []byte) (*Value, error) {
 	var v interface{}
 	err := DefaultCodec.Unmarshal(data, &v)
-	return &Value{v, &DefaultCodec}, err
+	return &Value{value: v, codec: &DefaultCodec}, err
 }
 
 func NewWithCodec(data []byte, codec Codec) (*Value, error) {
 	var v interface{}
 	err := codec.Unmarshal(data, &v)
-	return &Value{v, &codec}, err
+	return &Value{value: v, codec: &codec}, err
 }
 
 func ValueOf(v interface{}) *Value {
-	return &Value{v, &DefaultCodec}
+	return &Value{value: v, codec: &DefaultCodec}
 }
 
 func (v *Value) Marshal() (data []byte, err error) {
@@ -54,6 +57,22 @@ func (v *Value) Unmarshal(dst interface{}) (err error) {
 		return err
 	}
 	return v.codec.Unmarshal(data, dst)
+}
+
+func (v *Value) ParentKey() string {
+	return v.key
+}
+
+func (v *Value) ParentIndex() int {
+	return v.index
+}
+
+func (v *Value) Parent() *Value {
+	return v.parent
+}
+
+func (v *Value) Isolate() *Value {
+	return &Value{value: v.value, codec: v.codec}
 }
 
 func (v *Value) IsObject() bool {
@@ -131,11 +150,11 @@ func (v *Value) Bool() bool {
 func (v *Value) Index(i int) *Value {
 
 	if a, ok := v.value.([]interface{}); ok {
-		return &Value{a[i], v.codec}
+		return &Value{value: a[i], codec: v.codec, index: i, parent: v}
 	}
 
 	if s, ok := v.value.([]byte); ok {
-		return &Value{string(s[i]), v.codec}
+		return &Value{value: string(s[i]), codec: v.codec, index: i, parent: v}
 	}
 
 	panic("v is not an array (slice) or string.")
@@ -144,11 +163,11 @@ func (v *Value) Index(i int) *Value {
 func (v *Value) Slice(i, j int) *Value {
 
 	if a, ok := v.value.([]interface{}); ok {
-		return &Value{a[i:j], v.codec}
+		return &Value{value: a[i:j], codec: v.codec, parent: v}
 	}
 
 	if s, ok := v.value.([]byte); ok {
-		return &Value{string(s[i:j]), v.codec}
+		return &Value{value: string(s[i:j]), codec: v.codec, parent: v}
 	}
 
 	panic("v is not an array (slice) or string.")
@@ -157,11 +176,11 @@ func (v *Value) Slice(i, j int) *Value {
 func (v *Value) Get(k string) *Value {
 
 	if o, ok := v.value.(map[string]interface{}); ok {
-		return &Value{o[k], v.codec}
+		return &Value{value: o[k], codec: v.codec, key: k, parent: v}
 	}
 
 	if o, ok := v.value.(map[interface{}]interface{}); ok {
-		return &Value{o[k], v.codec}
+		return &Value{value: o[k], codec: v.codec, key: k, parent: v}
 	}
 
 	panic("v is not an object (map).")
@@ -186,7 +205,7 @@ func (v *Value) TryGet(k string) (*Value, bool) {
 
 	if o, ok := v.value.(map[interface{}]interface{}); ok {
 		if fv, has := o[k]; has {
-			return &Value{fv, v.codec}, true
+			return &Value{value: fv, codec: v.codec, key: k, parent: v}, true
 		} else {
 			return nil, false
 		}
@@ -229,14 +248,58 @@ func (v *Value) Keys() []string {
 	panic("v is not an object (map).")
 }
 
-func (v *Value) EachIndex(f func(i int, v *Value)) {
+func (v *Value) EachIndex(f func(i int, v *Value) bool) {
 	for i := 0; i < v.Len(); i++ {
-		f(i, v.Index(i))
+		if end := f(i, v.Index(i)); end {
+			break
+		}
 	}
 }
 
-func (v *Value) EachKey(f func(k string, v *Value)) {
+func (v *Value) EachKey(f func(k string, v *Value) bool) {
 	for _, k := range v.Keys() {
-		f(k, v.Get(k))
+		if end := f(k, v.Get(k)); end {
+			break
+		}
+	}
+}
+
+func (v *Value) Find(f func(v *Value) (ok, end bool)) <-chan *Value {
+	ch := make(chan *Value)
+	go func() {
+		v.traversal(f, ch)
+		close(ch)
+	}()
+	return ch
+}
+
+func (v *Value) traversal(f func(v *Value) (ok, end bool), ch chan<- *Value) {
+	switch {
+	case v.IsArray():
+		v.EachIndex(func(i int, e *Value) bool {
+			ok, end := f(e)
+			if ok {
+				ch <- e
+			}
+
+			if !end {
+				e.traversal(f, ch)
+			}
+
+			return end
+		})
+	case v.IsObject():
+		v.EachKey(func(k string, e *Value) bool {
+			ok, end := f(e)
+			if ok {
+				ch <- e
+			}
+
+			if !end {
+				e.traversal(f, ch)
+			}
+
+			return end
+		})
 	}
 }

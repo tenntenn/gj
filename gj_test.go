@@ -188,10 +188,12 @@ func TestKeys(t *testing.T) {
 func TestEachIndex(t *testing.T) {
 	v, _ := New([]byte(jsonStrs[4]))
 	values := []int64{100, 200}
-	v.EachIndex(func(i int, v *Value) {
+	v.EachIndex(func(i int, v *Value) bool {
 		if actual := v.Int(); values[i] != actual {
 			t.Error("expect ", values[i], "but actual ", actual)
 		}
+
+		return true
 	})
 }
 
@@ -201,9 +203,32 @@ func TestEachKey(t *testing.T) {
 		"hoge": 100,
 		"piyo": 200,
 	}
-	v.EachKey(func(k string, v *Value) {
+	v.EachKey(func(k string, v *Value) bool {
 		if actual := v.Int(); values[k] != actual {
 			t.Error("expect ", values[k], "but actual ", actual)
 		}
+
+		return true
 	})
+}
+
+func TestFind(t *testing.T) {
+	expects := map[int]bool{1: false, 2: false, 3: false}
+	count := len(expects)
+	v, _ := New([]byte(jsonStrs[0]))
+	ch := v.Find(func(v *Value) (ok, end bool) {
+		return v.ParentKey() == "data", false
+	})
+
+	for e := range ch {
+		actual := int(e.Int())
+		if _, ok := expects[actual]; ok {
+			count--
+			expects[actual] = true
+		}
+	}
+
+	if count != 0 {
+		t.Error()
+	}
 }
