@@ -264,26 +264,33 @@ func (v *Value) EachKey(f func(k string, v *Value) bool) {
 	}
 }
 
+func (v *Value) Traversal(f func(v *Value) (end bool)) {
+	v.traversal(func(v *Value) (ok, end bool) { return false, f(v) }, func(v *Value) {})
+}
+
 func (v *Value) Find(f func(v *Value) (ok, end bool)) <-chan *Value {
 	ch := make(chan *Value)
+	callback := func(v *Value) {
+		ch <- v
+	}
 	go func() {
-		v.traversal(f, ch)
+		v.traversal(f, callback)
 		close(ch)
 	}()
 	return ch
 }
 
-func (v *Value) traversal(f func(v *Value) (ok, end bool), ch chan<- *Value) {
+func (v *Value) traversal(f func(v *Value) (ok, end bool), callback func(v *Value)) {
 	switch {
 	case v.IsArray():
 		v.EachIndex(func(i int, e *Value) bool {
 			ok, end := f(e)
 			if ok {
-				ch <- e
+				callback(e)
 			}
 
 			if !end {
-				e.traversal(f, ch)
+				e.traversal(f, callback)
 			}
 
 			return end
@@ -292,11 +299,11 @@ func (v *Value) traversal(f func(v *Value) (ok, end bool), ch chan<- *Value) {
 		v.EachKey(func(k string, e *Value) bool {
 			ok, end := f(e)
 			if ok {
-				ch <- e
+				callback(e)
 			}
 
 			if !end {
-				e.traversal(f, ch)
+				e.traversal(f, callback)
 			}
 
 			return end
