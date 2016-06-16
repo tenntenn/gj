@@ -232,3 +232,23 @@ func TestFind(t *testing.T) {
 		t.Error()
 	}
 }
+
+func TestPointer(t *testing.T) {
+	expects := map[int]string{1: "/data", 2: "/children/0/data", 3: "/children/1/data"}
+	count := len(expects)
+	v, _ := New([]byte(jsonStrs[0]))
+	ch := v.Find(func(v *Value) (ok, end bool) {
+		return v.ParentKey() == "data", false
+	})
+
+	for e := range ch {
+		actual := int(e.Int())
+		if ok := e.Pointer() == expects[actual]; ok {
+			count--
+		}
+	}
+
+	if count != 0 {
+		t.Error()
+	}
+}
