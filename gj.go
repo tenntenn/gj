@@ -3,6 +3,7 @@ package gj
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 type Codec struct {
@@ -24,27 +25,28 @@ func jsonUnmarshal(data []byte, v interface{}) (err error) {
 }
 
 type Value struct {
-	value  interface{}
-	codec  *Codec
-	parent *Value
-	key    string
-	index  int
+	value   interface{}
+	codec   *Codec
+	parent  *Value
+	key     string
+	index   int
+	pointer string
 }
 
 func New(data []byte) (*Value, error) {
 	var v interface{}
 	err := DefaultCodec.Unmarshal(data, &v)
-	return &Value{value: v, codec: &DefaultCodec}, err
+	return &Value{value: v, codec: &DefaultCodec, pointer: ""}, err
 }
 
 func NewWithCodec(data []byte, codec Codec) (*Value, error) {
 	var v interface{}
 	err := codec.Unmarshal(data, &v)
-	return &Value{value: v, codec: &codec}, err
+	return &Value{value: v, codec: &codec, pointer: "/"}, err
 }
 
 func ValueOf(v interface{}) *Value {
-	return &Value{value: v, codec: &DefaultCodec}
+	return &Value{value: v, codec: &DefaultCodec, pointer: "/"}
 }
 
 func (v *Value) Marshal() (data []byte, err error) {
@@ -63,6 +65,10 @@ func (v *Value) ParentKey() string {
 	return v.key
 }
 
+func (v *Value) Pointer() string {
+	return v.pointer
+}
+
 func (v *Value) ParentIndex() int {
 	return v.index
 }
@@ -72,7 +78,7 @@ func (v *Value) Parent() *Value {
 }
 
 func (v *Value) Isolate() *Value {
-	return &Value{value: v.value, codec: v.codec}
+	return &Value{value: v.value, codec: v.codec, pointer: v.pointer}
 }
 
 func (v *Value) IsObject() bool {
@@ -150,11 +156,11 @@ func (v *Value) Bool() bool {
 func (v *Value) Index(i int) *Value {
 
 	if a, ok := v.value.([]interface{}); ok {
-		return &Value{value: a[i], codec: v.codec, index: i, parent: v}
+		return &Value{value: a[i], codec: v.codec, index: i, parent: v, pointer: v.pointer + "/" + strconv.Itoa(i)}
 	}
 
 	if s, ok := v.value.([]byte); ok {
-		return &Value{value: string(s[i]), codec: v.codec, index: i, parent: v}
+		return &Value{value: string(s[i]), codec: v.codec, index: i, parent: v, pointer: v.pointer + "/" + strconv.Itoa(i)}
 	}
 
 	panic("v is not an array (slice) or string.")
@@ -176,11 +182,11 @@ func (v *Value) Slice(i, j int) *Value {
 func (v *Value) Get(k string) *Value {
 
 	if o, ok := v.value.(map[string]interface{}); ok {
-		return &Value{value: o[k], codec: v.codec, key: k, parent: v}
+		return &Value{value: o[k], codec: v.codec, key: k, parent: v, pointer: v.pointer + "/" + k}
 	}
 
 	if o, ok := v.value.(map[interface{}]interface{}); ok {
-		return &Value{value: o[k], codec: v.codec, key: k, parent: v}
+		return &Value{value: o[k], codec: v.codec, key: k, parent: v, pointer: v.pointer + "/" + k}
 	}
 
 	panic("v is not an object (map).")
